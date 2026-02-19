@@ -28,3 +28,96 @@ system：作用域和provided是一样的，但是它不是从远程仓库获取
      <scope>system</scope>
      <systemPath>C://学习资料/4K高清无码/test.jar</systemPath>
 </dependency>
+
+## <packaging>pom</packaging>这一行能否解释一下作用
+
+你想了解 `<packaging>pom</packaging>` 这行配置的具体作用，这是 Maven 多模块项目中最核心的配置之一，我会用通俗易懂的方式讲清楚它的含义、作用场景和核心功能，让你明白为什么父项目必须用这个配置。
+
+### 核心定义
+`<packaging>` 是 Maven 中指定**项目打包类型**的核心配置，`pom` 是其中一种特殊类型，专门用于**多模块项目的父项目/聚合项目**，它的核心作用是：**该项目不生成可执行构件（如 jar/war），仅作为“配置容器”管理子模块、统一依赖/插件版本**。
+
+### 一、`<packaging>pom</packaging>` 的核心作用
+#### 1. 标识项目角色：父/聚合项目
+Maven 会根据 `packaging` 的值识别项目类型：
+- `jar`：普通 Java 项目，打包生成 `.jar` 文件（如你的 Child1 子模块）；
+- `war`：Web 项目，打包生成 `.war` 文件；
+- `pom`：**聚合/父项目**，不编译代码、不生成构件，仅负责：
+    - 聚合多个子模块（通过 `<modules>` 节点指定）；
+    - 统一管理子模块的依赖版本、插件版本、编译配置（如 JDK 版本）；
+    - 传递通用配置给子模块（子模块通过 `<parent>` 继承）。
+
+#### 2. 改变 Maven 生命周期行为
+Maven 不同打包类型对应不同的生命周期：
+- `jar/war` 类型：执行 `mvn package` 时会执行「编译 → 测试 → 打包生成构件」等完整步骤；
+- `pom` 类型：执行 `mvn package` 时，**仅验证配置、触发子模块的构建**，自身不会编译代码或生成 jar/war，这也是你父项目没有 jar 文件的根本原因。
+
+#### 3. 支持依赖/插件的集中管理
+父项目用 `pom` 类型时，可通过以下节点实现“统一管理”，子模块无需重复配置：
+- `<dependencyManagement>`：统一管理所有子模块的依赖版本（子模块引用时无需写版本号）；
+- `<pluginManagement>`：统一管理所有子模块的插件版本（如你父项目中的 `maven-surefire-plugin`）；
+- `<properties>`：统一定义全局变量（如 JDK 版本、Lombok 版本）。
+
+### 二、实战对比：pom vs jar 类型
+#### 1. 父项目（pom 类型）典型配置
+```xml
+<project>
+  <groupId>org.example</groupId>
+  <artifactId>Maven_study</artifactId>
+  <version>1.0-SNAPSHOT</version>
+  <!-- 核心：标识为父/聚合项目 -->
+  <packaging>pom</packaging>
+
+  <!-- 聚合子模块：执行mvn命令时会自动构建这些子模块 -->
+  <modules>
+    <module>Child1</module>
+    <!-- 可添加更多子模块，如Child2、Child3 -->
+  </modules>
+
+  <!-- 统一管理子模块依赖版本 -->
+  <dependencyManagement>
+    <dependencies>
+      <dependency>
+        <groupId>org.projectlombok</groupId>
+        <artifactId>lombok</artifactId>
+        <version>1.18.30</version>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+</project>
+```
+
+#### 2. 子模块（jar 类型）典型配置
+```xml
+<project>
+  <parent>
+    <groupId>org.example</groupId>
+    <artifactId>Maven_study</artifactId>
+    <version>1.0-SNAPSHOT</version>
+    <relativePath>../pom.xml</relativePath>
+  </parent>
+
+  <artifactId>Child1</artifactId>
+  <!-- 默认packaging是jar，可省略 -->
+  <packaging>jar</packaging>
+
+  <!-- 引用父项目管理的依赖，无需写版本号 -->
+  <dependencies>
+    <dependency>
+      <groupId>org.projectlombok</groupId>
+      <artifactId>lombok</artifactId>
+    </dependency>
+  </dependencies>
+</project>
+```
+
+### 三、关键注意事项
+1. **父项目必须用 pom 类型**：如果父项目用 `jar` 类型，Maven 会尝试编译父项目的代码（若有）并生成 jar，但失去了“统一管理子模块”的核心价值，不符合多模块项目的最佳实践；
+2. **pom 项目也会生成构件，但不是 jar**：执行 `mvn install` 时，pom 项目会把 `pom.xml` 安装到本地仓库（`~/.m2/repository/org/example/Maven_study/1.0-SNAPSHOT/Maven_study-1.0-SNAPSHOT.pom`），供子模块继承使用；
+3. **可嵌套使用**：大型项目中，可有多级 pom 项目（如顶级父项目 → 业务模块父项目 → 具体子模块），每层都用 `pom` 类型做分层管理。
+
+### 总结
+1. `<packaging>pom</packaging>` 标识项目为**父/聚合项目**，不生成 jar/war，仅做配置管理；
+2. 核心功能：聚合子模块、统一管理依赖/插件版本、传递通用配置；
+3. 多模块项目中，父项目用 `pom`，子模块用 `jar/war` 是 Maven 的标准最佳实践。
+
+不一定非要带依赖才能运行，但如果你的代码用到了外部依赖（比如 Lombok、日志库等），就必须用包含依赖的 jar 才能正常运行。

@@ -11,6 +11,38 @@
     </parent>
 
     <artifactId>Child1</artifactId>
+    <packaging>jar</packaging> <!-- 子模块是 jar 类型，可打包 -->
+
+    <build>
+        <plugins>
+            <!-- 配置 assembly 插件，生成包含依赖的可执行 jar -->
+            <plugin>
+                <artifactId>maven-assembly-plugin</artifactId>
+                <configuration>
+                    <descriptorRefs>
+                        <descriptorRef>jar-with-dependencies</descriptorRef>
+                    </descriptorRefs>
+                    <archive>
+                        <manifest>
+                            <addClasspath>true</addClasspath>
+                            <!-- 核心：填写 Child1 中主类的全限定名 -->
+                            <mainClass>org.example.Main</mainClass>
+                        </manifest>
+                    </archive>
+                </configuration>
+                <!-- 绑定到 package 阶段，打包时自动生成胖包 -->
+                <executions>
+                    <execution>
+                        <id>make-assembly</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>single</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
 
     <properties>
         <maven.compiler.source>21</maven.compiler.source>
